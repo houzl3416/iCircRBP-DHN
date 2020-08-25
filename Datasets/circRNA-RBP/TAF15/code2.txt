@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+# encoding: utf-8
+import keras.backend as K
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from keras.models import Sequential
+from keras.layers import Dense, LSTM, Dropout, Bidirectional, Flatten, GRU, Activation
+from keras.layers import Convolution1D, MaxPooling1D, AveragePooling1D
+from keras.layers.embeddings import Embedding
+from keras.callbacks import ModelCheckpoint, EarlyStopping
+from sklearn import metrics
+# from ene import reshape_input,Twoclassfy_evalu, avg
+from keras.optimizers import Adam, SGD, RMSprop,Adagrad
+from keras.models import load_model
+import random
+from keras import regularizers
+import heapq
+import math
+import scipy.io as sio
+from propre import Twoclassfy_evalu, avg
+from sklearn.metrics import accuracy_score
+
+
+
+
+
+def cut_kmer(seq, k, stride):
+    kmer = []
+    seq = seq.lower()
+    l = len(seq)
+    for i in range(0, l, stride):
+        if i + k >= l + 1:
+            break
+        else:
+            kmer.append(seq[i:i + k])
+    return kmer
+
+
+embdim = 100
+num_words = 20000
+
+
+def tokenize_seqs(texts, num_words):
+    lens = [len(str(line).strip()) for line in texts]
+    max_1 = heapq.nlargest(1, lens)
+    max_len = int(max_1[0])
+    tokenizer = Tokenizer(num_words=num_words)
+    tokenizer.fit_on_texts(texts)
+    sequences = tokenizer.texts_to_sequences(texts)
+    X = pad_sequences(sequences, maxlen=max_len)
+    kmer_index = tokenizer.word_index
+    return X, kmer_index, max_len
+
+
+def generate_EMatrix(embedim, kmer_index, word2vec):
+    embedding_dim = int(embedim)
+    nb_words = min(num_words, len(kmer_index))
+    kmer2vec = {}
+    with open(word2vec) as f:
+        for line in f:
+            values = line.split()
+            try:
+                kmer = values[0]
+                coefs = np.asarray(values[1:], dtype='float32')
+                kmer2vec[kmer] = coefs
+            except:
+                pass  # pass代表什么也不做
+
+    embedding_matrix = np.zeros((nb_words + 1, embedding_dim))
+    for kmer, i in kmer_index.items():
+        if i > num_words:
+            continue
+        vector = kmer2vec.get(kmer)
+        if vector is not None:
+            embedding_matrix[i] = vector
+
+    return embedding_matrix, nb_words,
+
+
+def deal_with_data(protein,num_words):
+    dataX = []
+    dataY = []
+    with open('F:/BY/DUT/2019_1/deepnet/circ-rna/CRIP-master/dataset/'+protein+'/positive') as f:
+        for line in f:
+            if '>' not in line:
+                dataX.append(cut_kmer(line.strip(), 6, 1))
+                dataY.append(1)
+    with open('F:/BY/DUT/2019_1/deepnet/circ-rna/CRIP-master/dataset/'+protein+'/negative') as f:
+        for line in f:
+            if '>' not in line:
+                dataX.append(cut_kmer(line.strip(), 6, 1))
+                dataY.append(0)
+
+    dataX, kmer_index, max_len = tokenize_seqs(dataX, num_words)
+    dataX = np.array(dataX)
+    dataY = np.array(dataY)
+    train_X, test_X, train_y, test_y = train_test_split(dataX,dataY,shuffle=True,test_size=0.2,stratify=dataY)
+    return train_X, test_X, train_y, test_y, kmer_index, max_len  # lens是一个列表，记录每条序列的分词数
+
+
+trainXeval, test_X, trainYeval, test_y, kmer_index, max_len = deal_with_data('TAF15',num_words)
+embedding_matrix, nb_words = generate_EMatrix(embdim, kmer_index, 'F:/BY/DUT/2019_1/deepnet/circ-rna/word2vec/circ_61.vector')
+
+# test_y = test_y[:, 1]
+kf = StratifiedKFold(n_splits=5,shuffle=True)
+aucs = []
+kaccs = []
+klosss = []
+for train_index, eval_index in kf.split(trainXeval, trainYeval):
+    train_X = trainXeval[train_index]
+    train_y = trainYeval[train_index]
+    eval_X = trainXeval[eval_index]
+    eval_y = trainYeval[eval_index]
+    print('configure cnn network')
+    model = Sequential()
+    model.add(Embedding(nb_words + 1, embdim, weights=[embedding_matrix], input_length=max_len, trainable=True))
+    model.add(Convolution1D(filters=120, kernel_size=7, padding='same', activation='relu', strides=1))
+    model.add(MaxPooling1D(pool_size=6))
+    model.add(Dropout(0.2))
+    model.add(Convolution1D(filters=100, kernel_size=5, padding='same', activation='relu', strides=1))
+    model.add(MaxPooling1D(pool_size=4))
+    model.add(Dropout(0.2))
+    model.add(Convolution1D(filters=80, kernel_size=4, padding='same', activation='relu', strides=1))
+    model.add(MaxPooling1D(pool_size=4))
+    model.add(Dropout(0.2))
+    model.add(Bidirectional(LSTM(60,activation='relu',dropout=0.2,recurrent_dropout=0.2)))  #recurrent_dropout=0.1
+    model.add(Dense(30, activation='relu'))
+    model.add(Dropout(0.2))
+    model.add(Dense(1))
+    model.add(Activation('sigmoid'))
+    # sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])  # Adam(lr=1e-4)
+    print('model training')
+    checkpointer = ModelCheckpoint(filepath='model_2.h5', verbose=1,
+                                   save_best_only=True)
+    earlystopper = EarlyStopping(monitor='val_loss', patience=6, verbose=1)
+
+    model.fit(train_X, train_y, batch_size=100, epochs=30, verbose=1, validation_data=(eval_X, eval_y), shuffle=True,
+              callbacks=[checkpointer, earlystopper])
+    Model = load_model('model_2.h5')
+    predictions = Model.predict_proba(test_X)
+    auc = roc_auc_score(test_y,predictions)
+    print('auc',auc)
+    aucs.append(auc)
+    kloss,kacc = Model.evaluate(test_X, test_y)
+    kaccs.append(kacc)
+    klosss.append(kloss)
+    print('acc',kacc)
+    print('loss',kloss)
+
+
+
+
+print('mean_auc', np.mean(aucs))
+print('keras_acc',np.mean(kaccs))
+print('keras_loss',np.mean(klosss))
+
