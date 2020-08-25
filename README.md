@@ -2,14 +2,16 @@
 The tool is developed for circRNA-RBP interaction sites identification using deep hierarchical network
 ![image](https://github.com/houzl3416/iCircRBP-DHN/blob/iCircRBP-DHN/Architecture.png)
 # Requirements
-- R >= 3.0 (64-bit)
+- R >= 3.6.1 (64-bit)
 
-- Python 2.7 (64-bit)
+- Python 3.7 (64-bit)
 
-- Keras 2.2.4 in R and Python
+- Keras 2.2.0 in Python
 
-- ROCR 1.0-7 in R
+- TensorFlow-GPU 1.14.0 in Python
 
-- reticulate 1.11.1 in R
+- Numpy 1.18.0 in Python
 
-- numpy in Python
+- Gensim 3.8.3
+
+- Ubuntu 18.04 (64-bit)
