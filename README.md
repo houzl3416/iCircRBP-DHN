@@ -30,7 +30,7 @@ You can train the model of 5-fold cross-validation with a very simple way by the
 ## How to train the Linear-RNA model
 You can also test the linear-RNA model of 5-fold cross-validation, and make sure the RNA embedding flag is set to linRNA2Vec_model and the file path is set to *linRNA-RBP*.
 ## How to predict the probability of unknown circRNA
-The *iCircRBP-Predict.py* is proposed to calculate the probability for the circRNAs of unknown types. Please also change following paths to suit your system:
+The *iCircRBP-Predict.py* is proposed to calculate the probability for the circRNA-binding protein of unknown types. Please also change following paths to suit your system:
 >***1)*** set the sequence location. e.g. ‘set seqPath = ‘/home/Sequence/’.  
 >***2)*** set the type of the RNA Embeddings. e.g. ‘set modelType = /home/yangyuning/iCircRBP-DHN/circRNA2Vec/circRNA2Vec_model’.  
 >***3)*** set the type of circRNA model. e.g. ‘set modelPredictType = ‘/home/iCircRBP-DHN/result/WTAP/results/model.h5’.  
