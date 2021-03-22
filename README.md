@@ -1,6 +1,9 @@
 # iCircRBP-DHN
 The tool is developed for circRNA-RBP interaction sites identification using deep hierarchical network
 ![image](https://github.com/houzl3416/iCircRBP-DHN/blob/iCircRBP-DHN/Architecture.png)
+# Notice
+This account has no restrictions. All open source code, data and models can be downloaded from GitHub or any other processes.
+![image](https://github.com/houzl3416/iCircRBP-DHN/blob/iCircRBP-DHN/2.png)
 # Requirements
 - R >= 3.6.1 (64-bit)
 
